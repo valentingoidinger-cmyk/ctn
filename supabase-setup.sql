@@ -101,6 +101,23 @@ CREATE INDEX IF NOT EXISTS tour_dates_date_idx ON tour_dates(date);
 CREATE INDEX IF NOT EXISTS releases_order_idx ON releases("order");
 CREATE INDEX IF NOT EXISTS gallery_images_order_idx ON gallery_images("order");
 
+-- Keepalive table (prevents Supabase from pausing after 7 days inactivity)
+CREATE TABLE IF NOT EXISTS keepalive (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  ping_count INTEGER DEFAULT 0,
+  last_ping TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT single_row CHECK (id = 1)
+);
+
+-- Insert initial row
+INSERT INTO keepalive (id, ping_count, last_ping) 
+VALUES (1, 0, NOW())
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable RLS and allow public access for the cron job
+ALTER TABLE keepalive ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on keepalive" ON keepalive FOR ALL USING (true);
+
 -- ============================================
 -- STORAGE BUCKET SETUP (Run in Supabase Dashboard)
 -- ============================================
