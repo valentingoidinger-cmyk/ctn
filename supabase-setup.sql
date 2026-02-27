@@ -37,6 +37,7 @@ ALTER TABLE band_info ADD COLUMN IF NOT EXISTS hero_tagline TEXT;
 ALTER TABLE band_info ADD COLUMN IF NOT EXISTS hero_description TEXT;
 ALTER TABLE band_info ADD COLUMN IF NOT EXISTS press_kit_url TEXT;
 ALTER TABLE band_info ADD COLUMN IF NOT EXISTS accent_color TEXT DEFAULT '#f59e0b';
+ALTER TABLE band_info ADD COLUMN IF NOT EXISTS social_apple_music TEXT;
 
 -- Create releases table (EPs, Albums, Singles)
 CREATE TABLE IF NOT EXISTS releases (
@@ -99,3 +100,21 @@ CREATE POLICY "Allow all on gallery_images" ON gallery_images FOR ALL USING (tru
 CREATE INDEX IF NOT EXISTS tour_dates_date_idx ON tour_dates(date);
 CREATE INDEX IF NOT EXISTS releases_order_idx ON releases("order");
 CREATE INDEX IF NOT EXISTS gallery_images_order_idx ON gallery_images("order");
+
+-- ============================================
+-- STORAGE BUCKET SETUP (Run in Supabase Dashboard)
+-- ============================================
+-- 1. Go to Storage in Supabase Dashboard
+-- 2. Create a new bucket called "gallery"
+-- 3. Make it PUBLIC (toggle "Public bucket" on)
+-- 4. Add this policy for uploads (in SQL Editor):
+
+-- Allow public read access to gallery bucket
+-- CREATE POLICY "Public read access for gallery"
+-- ON storage.objects FOR SELECT
+-- USING (bucket_id = 'gallery');
+
+-- Allow authenticated uploads to gallery bucket (or use anon for public uploads)
+-- CREATE POLICY "Allow uploads to gallery"
+-- ON storage.objects FOR INSERT
+-- WITH CHECK (bucket_id = 'gallery');

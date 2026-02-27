@@ -22,6 +22,7 @@ export type BandInfo = {
   social_instagram?: string
   social_facebook?: string
   social_spotify?: string
+  social_apple_music?: string
   social_youtube?: string
   updated_at: string
 }

@@ -2,9 +2,9 @@
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Moon, Music, Image, Calendar, Mail, X, FileText, Ticket, TicketX } from 'lucide-react'
+import { Moon, Music, Image, Calendar, Mail, X, FileText, Ticket, TicketX, ChevronDown } from 'lucide-react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSpotify, faApple, faYoutube } from '@fortawesome/free-brands-svg-icons'
+import { faSpotify, faApple, faYoutube, faInstagram } from '@fortawesome/free-brands-svg-icons'
 import { useRouter } from 'next/navigation'
 import type { Release, TourDate, BandInfo, GalleryImage } from '@/types/database'
 
@@ -17,16 +17,17 @@ interface Props {
 
 // Floating lights component for party atmosphere
 function FloatingLights() {
+  // Spread lights more evenly across the screen
   const lights = useMemo(() => [
-    { color: 'var(--accent)', size: 300, x: `${Math.random() * 80 + 10}%`, y: `${Math.random() * 80 + 10}%`, duration: 12 },
-    { color: 'rgba(236, 72, 153, 0.9)', size: 250, x: `${Math.random() * 80 + 10}%`, y: `${Math.random() * 80 + 10}%`, duration: 10 }, // pink
-    { color: 'rgba(147, 51, 234, 0.9)', size: 200, x: `${Math.random() * 80 + 10}%`, y: `${Math.random() * 80 + 10}%`, duration: 11 }, // purple
-    { color: 'var(--accent)', size: 180, x: `${Math.random() * 80 + 10}%`, y: `${Math.random() * 80 + 10}%`, duration: 14 },
-    { color: 'rgba(34, 211, 238, 0.9)', size: 220, x: `${Math.random() * 80 + 10}%`, y: `${Math.random() * 80 + 10}%`, duration: 8 }, // cyan
+    { color: 'var(--accent)', size: 350, x: '15%', y: '20%', duration: 12 },
+    { color: 'rgba(236, 72, 153, 1)', size: 300, x: '75%', y: '30%', duration: 10 }, // pink
+    { color: 'rgba(147, 51, 234, 1)', size: 280, x: '25%', y: '70%', duration: 11 }, // purple
+    { color: 'var(--accent)', size: 250, x: '85%', y: '75%', duration: 14 },
+    { color: 'rgba(34, 211, 238, 1)', size: 270, x: '50%', y: '45%', duration: 8 }, // cyan
   ], [])
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60">
       {lights.map((light: { color: string; size: number; x: string; y: string; duration: number }, i: number) => (
         <motion.div
           key={i}
@@ -36,14 +37,15 @@ function FloatingLights() {
             height: light.size,
             left: light.x,
             top: light.y,
+            transform: 'translate(-50%, -50%)',
             background: `radial-gradient(circle, ${light.color} 0%, transparent 70%)`,
-            filter: 'blur(60px)',
+            filter: 'blur(80px)',
           }}
           animate={{
-            x: [0, Math.random() * 100 - 50, 0],
-            y: [0, Math.random() * 100 - 50, 0],
-            scale: [1, 1.1, 0.9, 1],
-            opacity: [0.3, 0.85, 0.3],
+            x: [0, 80 * (i % 2 === 0 ? 1 : -1), 0],
+            y: [0, 60 * (i % 2 === 0 ? -1 : 1), 0],
+            scale: [1, 1.2, 0.9, 1],
+            opacity: [0.4, 0.85, 0.4],
           }}
           transition={{
             duration: light.duration,
@@ -62,6 +64,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
   const [currentIndex, setCurrentIndex] = useState(0)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [showRoadScream, setShowRoadScream] = useState(false)
+  const [showPastEvents, setShowPastEvents] = useState(false)
   
   // Navigate to tour event while preserving back navigation to #tour
   const navigateToEvent = useCallback((eventId: string) => {
@@ -69,6 +72,27 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
     window.history.replaceState(null, '', '/#tour')
     router.push(`/tour/${eventId}`)
   }, [router])
+  
+  // Split tour dates into upcoming and past
+  const { upcomingShows, pastShows } = useMemo(() => {
+    const now = new Date()
+    const upcoming: TourDate[] = []
+    const past: TourDate[] = []
+    
+    tourDates.forEach(show => {
+      const showDate = new Date(show.date)
+      if (showDate >= now) {
+        upcoming.push(show)
+      } else {
+        past.push(show)
+      }
+    })
+    
+    // Past shows: most recent first
+    past.reverse()
+    
+    return { upcomingShows: upcoming, pastShows: past }
+  }, [tourDates])
   
   // Only show the latest/featured release
   const featuredRelease = releases[0] || null
@@ -291,7 +315,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                     {bandInfo?.hero_tagline || 'Indie · Funk · Pop'}
                   </p>
                 </div>
-                <h1 className="text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tight">
+                <h1 className="text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tightest leading-none">
                   color<br />the night
                 </h1>
               </motion.div>
@@ -305,65 +329,98 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                 {bandInfo?.hero_description || 'We paint after dark. Late-night grooves, neon melodies, and sounds that move.'}
               </motion.p>
 
-              {/* Action buttons - sleek glass pills */}
+              {/* Button sections */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
-                className="flex flex-wrap items-center gap-3 pt-6"
+                className="space-y-4 pt-6"
               >
-                {bandInfo?.social_spotify && (
-                  <a
-                    href={bandInfo.social_spotify}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
-                  >
-                    <span className="text-[#1DB954]" style={{ fontSize: '1rem', lineHeight: 1 }}>
-                      <FontAwesomeIcon icon={faSpotify} />
-                    </span>
-                    <span className="text-white font-medium text-sm">Spotify</span>
-                  </a>
-                )}
+                {/* Listen & Follow */}
+                <div className="space-y-2">
+                  <span className="text-[var(--text-muted)] text-xs tracking-[0.2em] uppercase">Listen & Follow</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {bandInfo?.social_spotify && (
+                      <a
+                        href={bandInfo.social_spotify}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
+                      >
+                        <span className="text-[#1DB954]" style={{ fontSize: '1rem', lineHeight: 1 }}>
+                          <FontAwesomeIcon icon={faSpotify} />
+                        </span>
+                        <span className="text-white font-medium text-sm">Spotify</span>
+                      </a>
+                    )}
+                    
+                    {bandInfo?.social_apple_music && (
+                      <a
+                        href={bandInfo.social_apple_music}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
+                      >
+                        <span className="text-white" style={{ fontSize: '1rem', lineHeight: 1 }}>
+                          <FontAwesomeIcon icon={faApple} />
+                        </span>
+                        <span className="text-white font-medium text-sm">Music</span>
+                      </a>
+                    )}
+                    
+                    {bandInfo?.social_youtube && (
+                      <a
+                        href={bandInfo.social_youtube}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
+                      >
+                        <span className="text-[#FF0000]" style={{ fontSize: '1rem', lineHeight: 1 }}>
+                          <FontAwesomeIcon icon={faYoutube} />
+                        </span>
+                        <span className="text-white font-medium text-sm">YouTube</span>
+                      </a>
+                    )}
+                    
+                    {bandInfo?.social_instagram && (
+                      <a
+                        href={bandInfo.social_instagram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
+                      >
+                        <span className="text-[#E4405F]" style={{ fontSize: '1rem', lineHeight: 1 }}>
+                          <FontAwesomeIcon icon={faInstagram} />
+                        </span>
+                        <span className="text-white font-medium text-sm">Instagram</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
                 
-                {featuredRelease?.apple_music_url && (
-                  <a
-                    href={featuredRelease.apple_music_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
-                  >
-                    <span className="text-white" style={{ fontSize: '1rem', lineHeight: 1 }}>
-                      <FontAwesomeIcon icon={faApple} />
-                    </span>
-                    <span className="text-white font-medium text-sm">Music</span>
-                  </a>
-                )}
-                
-                {bandInfo?.social_youtube && (
-                  <a
-                    href={bandInfo.social_youtube}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/15 hover:border-white/20 transition-all"
-                  >
-                    <span className="text-[#FF0000]" style={{ fontSize: '1rem', lineHeight: 1 }}>
-                      <FontAwesomeIcon icon={faYoutube} />
-                    </span>
-                    <span className="text-white font-medium text-sm">YouTube</span>
-                  </a>
-                )}
-                
-                <button
-                  onClick={() => scrollToSection(sections.findIndex(s => s.id === 'tour'))}
-                  className="group flex items-center gap-2 px-4 py-1.5 backdrop-blur-md border border-white/10 rounded-full hover:border-white/20 transition-all"
-                  style={{ backgroundColor: 'var(--accent, rgba(245, 158, 11, 0.5))' }}
-                >
-                  <span className="text-white" style={{ fontSize: '1rem', lineHeight: 1 }}>
-                    <Calendar className="w-4 h-4" />
-                  </span>
-                  <span className="text-white font-medium text-sm">Events</span>
-                </button>
+                {/* Quick Links */}
+                <div className="space-y-2">
+                  <span className="text-[var(--text-muted)] text-xs tracking-[0.2em] uppercase">Connect</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => scrollToSection(sections.findIndex(s => s.id === 'tour'))}
+                      className="group flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-full hover:opacity-90 transition-all"
+                      style={{ backgroundColor: 'var(--accent)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    >
+                      <Calendar className="w-4 h-4 text-white" />
+                      <span className="text-white font-medium text-sm">Events</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => scrollToSection(sections.findIndex(s => s.id === 'connect'))}
+                      className="group flex items-center gap-2 px-4 py-2 rounded-full hover:opacity-90 transition-all"
+                      style={{ backgroundColor: '#3b82f6', border: '1px solid rgba(96, 165, 250, 0.5)' }}
+                    >
+                      <Mail className="w-4 h-4 text-white" />
+                      <span className="text-white font-medium text-sm">Contact</span>
+                    </button>
+                  </div>
+                </div>
               </motion.div>
 
               {/* Scroll hint - below buttons */}
@@ -552,7 +609,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
               <h2 className="text-4xl sm:text-5xl font-bold mt-2">Tour Dates</h2>
             </motion.div>
 
-            {tourDates.length === 0 ? (
+            {upcomingShows.length === 0 && pastShows.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
@@ -564,63 +621,142 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
               </motion.div>
             ) : (
               <div className="flex-1 overflow-y-auto mt-4 space-y-2 pb-24">
-                {tourDates.map((show, i) => {
-                  const { day, month, time } = formatDate(show.date)
-                  return (
-                    <motion.div
-                      key={show.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.03 }}
+                {/* Upcoming Shows */}
+                {upcomingShows.length === 0 ? (
+                  <div className="text-center py-8 border border-dashed border-[var(--text-muted)]/20 rounded-xl mb-4">
+                    <p className="text-[var(--text-secondary)]">No upcoming shows</p>
+                    <p className="text-[var(--text-muted)] text-sm mt-1">Check back soon for new dates</p>
+                  </div>
+                ) : (
+                  upcomingShows.map((show, i) => {
+                    const { day, month, time } = formatDate(show.date)
+                    return (
+                      <motion.div
+                        key={show.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: i * 0.03 }}
+                      >
+                        <button
+                          onClick={() => navigateToEvent(show.id)}
+                          className="w-full flex items-center rounded-xl border border-white/5 hover:border-[var(--accent)]/30 transition-all group"
+                          style={{ 
+                            textAlign: 'left', 
+                            backgroundColor: 'var(--bg-elevated)',
+                            padding: '0.5rem',
+                            gap: '1rem'
+                          }}
+                        >
+                          {/* Date + Time stacked */}
+                          <div className="text-center flex-shrink-0 w-12">
+                            <div className="text-[var(--accent)] text-[10px] tracking-widest font-medium">{month}</div>
+                            <div className="text-xl font-bold leading-none">{day}</div>
+                            <div className="text-[var(--text-muted)] text-[10px] mt-0.5">{time}</div>
+                          </div>
+
+                          {/* Venue & Location */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold truncate text-sm sm:text-base">{show.venue}</h3>
+                            <p className="text-[var(--text-secondary)] text-xs sm:text-sm truncate">
+                              {show.city}, {show.country}
+                            </p>
+                            {show.supporting_act && (
+                              <p className="text-[var(--text-muted)] text-[10px] truncate">w/ {show.supporting_act}</p>
+                            )}
+                          </div>
+
+                          {/* Status icon + arrow */}
+                          <div className="flex-shrink-0 flex items-center gap-2">
+                            {show.sold_out ? (
+                              <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center">
+                                <TicketX className="w-3.5 h-3.5 text-red-400" />
+                              </div>
+                            ) : show.ticket_url ? (
+                              <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                <Ticket className="w-3.5 h-3.5 text-emerald-400" />
+                              </div>
+                            ) : null}
+                            <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
+                              →
+                            </span>
+                          </div>
+                        </button>
+                      </motion.div>
+                    )
+                  })
+                )}
+
+                {/* Past Shows Section */}
+                {pastShows.length > 0 && (
+                  <div className="pt-4 mt-4 border-t border-white/5">
+                    <button
+                      onClick={() => setShowPastEvents(!showPastEvents)}
+                      className="w-full flex items-center justify-between py-2 px-1 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
                     >
-                       <button
-                         onClick={() => navigateToEvent(show.id)}
-                         className="w-full flex items-center rounded-xl border border-white/5 hover:border-[var(--accent)]/30 transition-all group"
-                         style={{ 
-                           textAlign: 'left', 
-                           backgroundColor: 'var(--bg-elevated)',
-                           padding: '0.5rem',
-                           gap: '1rem'
-                         }}
-                       >
-                        {/* Date + Time stacked */}
-                        <div className="text-center flex-shrink-0 w-12">
-                          <div className="text-[var(--accent)] text-[10px] tracking-widest font-medium">{month}</div>
-                          <div className="text-xl font-bold leading-none">{day}</div>
-                          <div className="text-[var(--text-muted)] text-[10px] mt-0.5">{time}</div>
-                        </div>
+                      <span className="text-xs tracking-[0.2em] uppercase font-medium">
+                        Past Events ({pastShows.length})
+                      </span>
+                      <motion.div
+                        animate={{ rotate: showPastEvents ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </motion.div>
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showPastEvents && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-2 pt-2">
+                            {pastShows.map((show, i) => {
+                              const { day, month, time } = formatDate(show.date)
+                              return (
+                                <motion.div
+                                  key={show.id}
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.02 }}
+                                >
+                                  <div
+                                    className="w-full flex items-center rounded-xl border border-white/5 opacity-50"
+                                    style={{ 
+                                      textAlign: 'left', 
+                                      backgroundColor: 'var(--bg-elevated)',
+                                      padding: '0.5rem',
+                                      gap: '1rem'
+                                    }}
+                                  >
+                                    {/* Date + Time stacked - muted */}
+                                    <div className="text-center flex-shrink-0 w-12">
+                                      <div className="text-[var(--text-muted)] text-[10px] tracking-widest font-medium">{month}</div>
+                                      <div className="text-xl font-bold leading-none text-[var(--text-muted)]">{day}</div>
+                                      <div className="text-[var(--text-muted)] text-[10px] mt-0.5">{time}</div>
+                                    </div>
 
-                        {/* Venue & Location */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate text-sm sm:text-base">{show.venue}</h3>
-                          <p className="text-[var(--text-secondary)] text-xs sm:text-sm truncate">
-                            {show.city}, {show.country}
-                          </p>
-                          {show.supporting_act && (
-                            <p className="text-[var(--text-muted)] text-[10px] truncate">w/ {show.supporting_act}</p>
-                          )}
-                        </div>
-
-                        {/* Status icon + arrow */}
-                        <div className="flex-shrink-0 flex items-center gap-2">
-                          {show.sold_out ? (
-                            <div className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center">
-                              <TicketX className="w-3.5 h-3.5 text-red-400" />
-                            </div>
-                          ) : show.ticket_url ? (
-                            <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                              <Ticket className="w-3.5 h-3.5 text-emerald-400" />
-                            </div>
-                          ) : null}
-                          <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
-                            →
-                          </span>
-                        </div>
-                      </button>
-                    </motion.div>
-                  )
-                })}
+                                    {/* Venue & Location */}
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="font-semibold truncate text-sm sm:text-base text-[var(--text-secondary)]">{show.venue}</h3>
+                                      <p className="text-[var(--text-muted)] text-xs sm:text-sm truncate">
+                                        {show.city}, {show.country}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -640,9 +776,9 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
               <span className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium">
                 Gallery
               </span>
-              <h2 className="text-4xl sm:text-5xl font-bold mt-2">Moments</h2>
+              <h2 className="text-4xl sm:text-5xl font-bold mt-2">Impressions</h2>
               <p className="text-[var(--text-secondary)] text-base mt-3 mb-6">
-                Fragments from the road. Click any image to expand.
+                Fragments from the road. 
               </p>
             </motion.div>
           </div>

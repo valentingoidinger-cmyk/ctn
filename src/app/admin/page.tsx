@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Moon, Music, Image, Calendar, Settings, LogOut, Check, X, Plus, Trash2, Edit3, ExternalLink, Loader2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -300,10 +300,20 @@ function BandInfoTab() {
       <Card className="bg-[#111118] border-white/10">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
-            <span className="text-2xl">📧</span> Contact
+            <span className="text-2xl">📧</span> Contact Page
           </CardTitle>
+          <CardDescription>About section on the contact page</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label className="text-base text-white">About Text</Label>
+            <Textarea
+              value={info.bio || ''}
+              onChange={(e) => setInfo({ ...info, bio: e.target.value })}
+              placeholder="color the night — indie-funk-pop band painting after dark since day one."
+              className="min-h-[100px] text-lg bg-black/40 border-white/10 text-white resize-none"
+            />
+          </div>
           <div className="space-y-3">
             <Label className="text-base text-white">Email</Label>
             <Input
@@ -337,6 +347,7 @@ function BandInfoTab() {
         <CardContent className="space-y-6">
           {[
             { key: 'social_spotify', label: 'Spotify', placeholder: 'https://open.spotify.com/...' },
+            { key: 'social_apple_music', label: 'Apple Music', placeholder: 'https://music.apple.com/...' },
             { key: 'social_instagram', label: 'Instagram', placeholder: 'https://instagram.com/...' },
             { key: 'social_youtube', label: 'YouTube', placeholder: 'https://youtube.com/...' },
             { key: 'social_facebook', label: 'Facebook', placeholder: 'https://facebook.com/...' },
@@ -386,14 +397,41 @@ function ReleasesTab() {
 
   const save = async (release: Release) => {
     const method = isNew ? 'POST' : 'PUT'
-    await fetch('/api/releases', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(release)
-    })
-    setEditing(null)
-    setIsNew(false)
-    fetchReleases()
+
+    // Clean up data for new releases - remove empty id and created_at
+    const payload = isNew
+      ? {
+          title: release.title,
+          type: release.type,
+          cover_url: release.cover_url,
+          release_date: release.release_date,
+          spotify_url: release.spotify_url || null,
+          apple_music_url: release.apple_music_url || null,
+          youtube_url: release.youtube_url || null,
+          order: release.order,
+          is_featured: release.is_featured
+        }
+      : release
+
+    try {
+      const response = await fetch('/api/releases', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(`Failed to save: ${error.error || 'Unknown error'}`)
+        return
+      }
+      
+      setEditing(null)
+      setIsNew(false)
+      fetchReleases()
+    } catch (error) {
+      alert(`Failed to save: ${error instanceof Error ? error.message : 'Network error'}`)
+    }
   }
 
   const toggleFeatured = async (release: Release) => {
@@ -524,6 +562,38 @@ function ReleaseForm({ release, onSave, onCancel, isNew }: {
   isNew: boolean 
 }) {
   const [form, setForm] = useState(release)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadCover = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+    
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/releases/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+      
+      const { url } = await response.json()
+      setForm({ ...form, cover_url: url })
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -566,14 +636,52 @@ function ReleaseForm({ release, onSave, onCancel, isNew }: {
           </div>
 
           <div className="space-y-3">
-            <Label className="text-base text-white">Cover Image URL</Label>
-            <Input
-              type="url"
-              value={form.cover_url}
-              onChange={(e) => setForm({ ...form, cover_url: e.target.value })}
-              placeholder="https://..."
-              className="h-14 text-lg bg-black/40 border-white/10 text-white"
-            />
+            <Label className="text-base text-white">Cover Image</Label>
+            
+            {/* Upload area */}
+            <div
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={`
+                border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
+                ${uploading 
+                  ? 'border-amber-500/50 bg-amber-500/5 pointer-events-none' 
+                  : 'border-white/20 hover:border-amber-500/50 hover:bg-white/5'
+                }
+              `}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && uploadCover(e.target.files[0])}
+                className="hidden"
+              />
+              {uploading ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-gray-400">Uploading...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">📤</span>
+                  <span className="text-gray-400">Upload cover image</span>
+                </div>
+              )}
+            </div>
+
+            {/* URL input */}
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 text-sm">or paste URL:</span>
+              <Input
+                type="url"
+                value={form.cover_url}
+                onChange={(e) => setForm({ ...form, cover_url: e.target.value })}
+                placeholder="https://..."
+                className="h-10 text-sm bg-black/40 border-white/10 text-white flex-1"
+              />
+            </div>
+
+            {/* Preview */}
             {form.cover_url && (
               <div className="w-32 h-32 rounded-xl overflow-hidden bg-black/40">
                 <img src={form.cover_url} alt="Preview" className="w-full h-full object-cover" />
@@ -662,14 +770,43 @@ function ToursTab() {
 
   const save = async (tour: TourDate) => {
     const method = isNew ? 'POST' : 'PUT'
-    await fetch('/api/tour-dates', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(tour)
-    })
-    setEditing(null)
-    setIsNew(false)
-    fetchTours()
+
+    // Convert datetime-local format to ISO timestamp
+    const dateValue = tour.date ? new Date(tour.date).toISOString() : null
+
+    // Clean up data for new tours - remove empty id and created_at
+    const payload = isNew
+      ? {
+          date: dateValue,
+          venue: tour.venue,
+          address: tour.address || null,
+          city: tour.city,
+          country: tour.country,
+          ticket_url: tour.ticket_url || null,
+          sold_out: tour.sold_out || false,
+          supporting_act: tour.supporting_act || null
+        }
+      : { ...tour, date: dateValue }
+
+    try {
+      const response = await fetch('/api/tour-dates', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        alert(`Failed to save: ${error.error || 'Unknown error'}`)
+        return
+      }
+      
+      setEditing(null)
+      setIsNew(false)
+      fetchTours()
+    } catch (error) {
+      alert(`Failed to save: ${error instanceof Error ? error.message : 'Network error'}`)
+    }
   }
 
   const toggleSoldOut = async (tour: TourDate) => {
@@ -927,6 +1064,9 @@ function GalleryTab() {
   const [localImages, setLocalImages] = useState<{ filename: string; url: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [newUrl, setNewUrl] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchImages = async () => {
     const [gallery, local] = await Promise.all([
@@ -950,6 +1090,62 @@ function GalleryTab() {
     fetchImages()
   }
 
+  const uploadFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+    
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch('/api/gallery/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+      
+      const { url } = await response.json()
+      await addImage(url)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      uploadFile(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      uploadFile(e.target.files[0])
+    }
+  }
+
   const deleteImage = async (id: string) => {
     await fetch(`/api/gallery?id=${id}`, { method: 'DELETE' })
     fetchImages()
@@ -961,10 +1157,60 @@ function GalleryTab() {
 
   return (
     <div className="space-y-6">
-      {/* Quick Add from URL */}
+      {/* Upload Image */}
       <Card className="bg-[#111118] border-white/10">
         <CardHeader>
-          <CardTitle className="text-white text-lg">Add Image</CardTitle>
+          <CardTitle className="text-white text-lg flex items-center gap-2">
+            <span className="text-2xl">📤</span> Upload Image
+          </CardTitle>
+          <CardDescription>Upload directly to cloud storage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`
+              relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+              ${dragActive 
+                ? 'border-amber-500 bg-amber-500/10' 
+                : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+              }
+              ${uploading ? 'pointer-events-none opacity-50' : ''}
+            `}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {uploading ? (
+              <div className="space-y-2">
+                <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-gray-400">Uploading...</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-4xl">📷</div>
+                <p className="text-white font-medium">Drop image here or tap to select</p>
+                <p className="text-gray-500 text-sm">JPG, PNG, GIF up to 10MB</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add from URL */}
+      <Card className="bg-[#111118] border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white text-lg flex items-center gap-2">
+            <span className="text-2xl">🔗</span> Add from URL
+          </CardTitle>
+          <CardDescription>Paste a link to an existing image</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
@@ -972,10 +1218,10 @@ function GalleryTab() {
               type="url"
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="Paste image URL..."
+              placeholder="https://example.com/image.jpg"
               className="h-14 text-lg bg-black/40 border-white/10 text-white"
             />
-            <Button 
+            <Button
               onClick={() => addImage(newUrl)}
               disabled={!newUrl}
               className="h-14 px-6 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
