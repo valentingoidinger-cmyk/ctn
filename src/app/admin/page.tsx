@@ -771,8 +771,8 @@ function ToursTab() {
   const save = async (tour: TourDate) => {
     const method = isNew ? 'POST' : 'PUT'
 
-    // Convert datetime-local format to ISO timestamp
-    const dateValue = tour.date ? new Date(tour.date).toISOString() : null
+    // Convert Vienna time input to UTC for storage
+    const dateValue = tour.date ? viennaToUTC(tour.date) : null
 
     // Clean up data for new tours - remove empty id and created_at
     const payload = isNew
@@ -919,22 +919,55 @@ function ToursTab() {
   )
 }
 
-// Helper to format date for datetime-local input
+// Helper to format date for datetime-local input (displays in Vienna time)
 function formatDateForInput(dateString: string): string {
   if (!dateString) return ''
   try {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return ''
-    // Format: YYYY-MM-DDTHH:MM (required by datetime-local)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
+    // Format in Vienna timezone for display
+    const viennaDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Vienna' }))
+    const year = viennaDate.getFullYear()
+    const month = String(viennaDate.getMonth() + 1).padStart(2, '0')
+    const day = String(viennaDate.getDate()).padStart(2, '0')
+    const hours = String(viennaDate.getHours()).padStart(2, '0')
+    const minutes = String(viennaDate.getMinutes()).padStart(2, '0')
     return `${year}-${month}-${day}T${hours}:${minutes}`
   } catch {
     return ''
   }
+}
+
+// Helper to convert Vienna time input to UTC for storage
+function viennaToUTC(dateString: string): string {
+  if (!dateString) return ''
+  // dateString is in format YYYY-MM-DDTHH:MM (Vienna time)
+  // We need to convert it to UTC
+  const [datePart, timePart] = dateString.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hours, minutes] = timePart.split(':').map(Number)
+  
+  // Create date assuming Vienna timezone
+  // Vienna is UTC+1 (CET) or UTC+2 (CEST during summer)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  })
+  
+  // Create a date and adjust for Vienna offset
+  const testDate = new Date(year, month - 1, day, hours, minutes)
+  const viennaOffset = getViennaOffset(testDate)
+  const utcDate = new Date(testDate.getTime() - viennaOffset)
+  
+  return utcDate.toISOString()
+}
+
+// Get Vienna timezone offset in milliseconds
+function getViennaOffset(date: Date): number {
+  const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
+  const viennaDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Vienna' }))
+  return viennaDate.getTime() - utcDate.getTime()
 }
 
 function TourForm({ tour, onSave, onCancel, isNew }: { 

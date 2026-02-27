@@ -194,18 +194,21 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
   }, [sections])
 
   const formatDate = (dateStr: string) => {
-    // Parse the date without timezone conversion - treat input as is
     const d = new Date(dateStr)
+    // Format in Vienna timezone
+    const options: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Vienna' }
+    const viennaStr = d.toLocaleString('en-US', { ...options, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true })
+    const parts = viennaStr.split(', ')
+    const [monthStr, dayStr, yearStr] = parts[0].split('/')
+    const timePart = parts[1]
+    
+    const monthNames = ['', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+    
     return {
-      day: d.getUTCDate(),
-      month: d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase(),
-      year: d.getUTCFullYear(),
-      time: d.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true,
-        timeZone: 'UTC'
-      })
+      day: parseInt(dayStr),
+      month: monthNames[parseInt(monthStr)],
+      year: parseInt(yearStr),
+      time: timePart
     }
   }
 

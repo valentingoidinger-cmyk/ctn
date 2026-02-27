@@ -12,19 +12,19 @@ interface Props {
 
 export default function TourDateClient({ show, bandInfo, backgroundImage }: Props) {
   const date = new Date(show.date)
-  // Format date without timezone conversion - treat input as is
-  const formattedDate = date.toLocaleDateString('en-US', { 
+  const tz = 'Europe/Vienna'
+  const formattedDate = date.toLocaleDateString('en-US', {
     weekday: 'short',
-    month: 'short', 
-    day: 'numeric', 
+    month: 'short',
+    day: 'numeric',
     year: 'numeric',
-    timeZone: 'UTC'
+    timeZone: tz
   })
-  const formattedTime = date.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
+  const formattedTime = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZone: 'UTC'
+    timeZone: tz
   })
   
   const isPast = date < new Date()
