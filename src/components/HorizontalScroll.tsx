@@ -63,8 +63,13 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [showImprint, setShowImprint] = useState(false)
   const [showRoadScream, setShowRoadScream] = useState(false)
   const [showPastEvents, setShowPastEvents] = useState(false)
+  const [videoReady, setVideoReady] = useState(false)
+  const [videoError, setVideoError] = useState(false)
+  const [slideshowIndex, setSlideshowIndex] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
   
   // Navigate to tour event while preserving back navigation to #tour
   const navigateToEvent = useCallback((eventId: string) => {
@@ -102,6 +107,39 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
     ? new Date(featuredRelease.release_date) > new Date() 
     : false
   
+  // Local band images for slideshow fallback
+  const localImages = useMemo(() => [
+    '/images/band-1.jpg', '/images/band-2.jpg', '/images/band-3.jpg',
+    '/images/band-4.jpg', '/images/band-5.jpg', '/images/band-6.jpg',
+    '/images/band-7.jpg', '/images/band-8.jpg', '/images/band-9.jpg',
+    '/images/band-10.jpg', '/images/band-11.jpg', '/images/band-12.jpg',
+  ], [])
+
+  // All slideshow images: gallery (Supabase) first, then local
+  const allSlideshowImages = useMemo(() => {
+    const galleryUrls = galleryImages.map(g => g.image_url)
+    return galleryUrls.length > 0 ? [...galleryUrls, ...localImages] : localImages
+  }, [galleryImages, localImages])
+
+  // Auto-advance slideshow (only when used as fallback)
+  useEffect(() => {
+    if (!videoError || allSlideshowImages.length <= 1) return
+    const timer = setInterval(() => {
+      setSlideshowIndex(i => (i + 1) % allSlideshowImages.length)
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [videoError, allSlideshowImages.length])
+
+  // Try to play video; if autoplay is blocked or video fails, use slideshow fallback
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || videoError) return
+    const playPromise = video.play()
+    if (playPromise) {
+      playPromise.catch(() => setVideoError(true))
+    }
+  }, [videoError])
+
   // Sections: intro - release - tour - gallery - contact (NEW ORDER)
   const sections = [
     { id: 'intro', icon: Moon },
@@ -290,35 +328,55 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
       >
         {/* INTRO */}
         <section className="flex-shrink-0 w-screen h-[100dvh] snap-start relative flex items-center overflow-hidden">
-          {/* Video background */}
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover opacity-40"
-          >
-            <source src="/videos/band-video.mp4" type="video/mp4" />
-          </video>
+          {/* Slideshow background — fallback only when video cannot play */}
+          {videoError && (
+            <AnimatePresence>
+              <motion.div
+                key={slideshowIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.45 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.5 }}
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${allSlideshowImages[slideshowIndex]})` }}
+              />
+            </AnimatePresence>
+          )}
+
+          {/* Video background — primary; slideshow only if this fails */}
+          {!videoError && (
+            <video
+              ref={videoRef}
+              autoPlay
+              loop
+              muted
+              playsInline
+              onCanPlay={() => setVideoReady(true)}
+              onError={() => setVideoError(true)}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[2000ms] ${videoReady ? 'opacity-40' : 'opacity-0'}`}
+            >
+              <source src="/videos/band-video.mp4" type="video/mp4" />
+            </video>
+          )}
           
           {/* Gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-r from-[var(--bg-primary)] via-[var(--bg-primary)]/30 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)] via-transparent to-[var(--bg-primary)]/50" />
           
-          <div className="container relative z-10">
-            <div className="max-w-3xl space-y-8">
+          <div className="container relative z-10 px-4 md:px-12 lg:px-16">
+            <div className="max-w-3xl space-y-6 md:space-y-5">
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <Moon className="w-6 h-6 text-[var(--accent)]" />
+                <div className="flex items-center gap-3 mb-2">
+                  <Moon className="w-5 h-5 text-[var(--accent)]" />
                   <p className="text-[var(--accent)] font-medium tracking-[0.3em] uppercase text-sm">
                     {bandInfo?.hero_tagline || 'Indie · Funk · Pop'}
                   </p>
                 </div>
-                <h1 className="text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tightest leading-none">
+                <h1 className="text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tight leading-none">
                   color<br />the night
                 </h1>
               </motion.div>
@@ -327,7 +385,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, delay: 0.5 }}
-                className="text-xl sm:text-2xl text-[var(--text-secondary)] max-w-xl leading-relaxed"
+                className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-xl leading-relaxed"
               >
                 {bandInfo?.hero_description || 'We paint after dark. Late-night grooves, neon melodies, and sounds that move.'}
               </motion.p>
@@ -337,7 +395,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
-                className="space-y-4 pt-6"
+                className="space-y-4"
               >
                 {/* Listen & Follow */}
                 <div className="space-y-2">
@@ -431,7 +489,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.2 }}
-                className="flex items-center gap-1 text-[var(--text-muted)] pt-8"
+                className="flex items-center gap-1 text-[var(--text-muted)] pt-2"
               >
                 <span className="text-xs tracking-[0.2em] uppercase">Scroll</span>
                 <motion.div
@@ -450,21 +508,22 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
         {featuredRelease && (
           <section className="flex-shrink-0 w-screen h-[100dvh] snap-start flex items-center py-12 md:py-20 relative overflow-hidden">
             <FloatingLights />
-            <div className="container relative z-10 h-full flex flex-col justify-center">
-              {/* Section heading */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="mb-2 md:mb-4"
-              >
-                <span className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium">
-                  {isUpcoming ? 'Next Release' : 'Latest Release'}
-                </span>
-              </motion.div>
+            <div className="container relative z-10 h-full flex flex-col justify-center px-4 md:px-12 lg:px-16">
+              <div className="max-w-6xl mx-auto w-full">
+                {/* Section heading */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="mb-2 md:mb-4"
+                >
+                  <span className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium">
+                    {isUpcoming ? 'Next Release' : 'Latest Release'}
+                  </span>
+                </motion.div>
 
-              {/* Two-column layout */}
-              <div className="grid md:grid-cols-2 gap-6 md:gap-16 lg:gap-24 items-center max-w-6xl">
+                {/* Two-column layout */}
+                <div className="grid md:grid-cols-2 gap-6 md:gap-16 lg:gap-24 items-center">
                 {/* Cover art */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -552,6 +611,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                     )}
                   </div>
                 </motion.div>
+                </div>
               </div>
             </div>
           </section>
@@ -590,40 +650,41 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
 
           <FloatingLights />
 
-          <div className="container h-full flex flex-col relative z-10">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-6 flex-shrink-0"
-            >
-              <span className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium">
-                On the{' '}
-                <button
-                  onClick={() => {
-                    setShowRoadScream(true)
-                    setTimeout(() => setShowRoadScream(false), 3000)
-                  }}
-                  className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium"
-                >
-                  Road
-                </button>
-              </span>
-              <h2 className="text-4xl sm:text-5xl font-bold mt-2">Tour Dates</h2>
-            </motion.div>
-
-            {upcomingShows.length === 0 && pastShows.length === 0 ? (
+          <div className="container h-full flex flex-col relative z-10 px-4 md:px-12 lg:px-16">
+            <div className="max-w-4xl mx-auto w-full h-full flex flex-col">
               <motion.div
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center py-16 border border-dashed border-[var(--text-muted)]/30 rounded-2xl"
+                className="mb-6 flex-shrink-0"
               >
-                <p className="text-[var(--text-secondary)] text-lg">No upcoming shows</p>
-                <p className="text-[var(--text-muted)] mt-2">New dates coming soon. Stay tuned.</p>
+                <span className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium">
+                  On the{' '}
+                  <button
+                    onClick={() => {
+                      setShowRoadScream(true)
+                      setTimeout(() => setShowRoadScream(false), 3000)
+                    }}
+                    className="text-[var(--accent)] text-sm tracking-[0.3em] uppercase font-medium"
+                  >
+                    Road
+                  </button>
+                </span>
+                <h2 className="text-4xl sm:text-5xl font-bold mt-2">Tour Dates</h2>
               </motion.div>
-            ) : (
-              <div className="flex-1 overflow-y-auto mt-4 space-y-2 pb-24">
+
+              {upcomingShows.length === 0 && pastShows.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
+                  viewport={{ once: true }}
+                  className="text-center py-16 border border-dashed border-[var(--text-muted)]/30 rounded-2xl"
+                >
+                  <p className="text-[var(--text-secondary)] text-lg">No upcoming shows</p>
+                  <p className="text-[var(--text-muted)] mt-2">New dates coming soon. Stay tuned.</p>
+                </motion.div>
+              ) : (
+                <div className="flex-1 overflow-y-auto mt-4 space-y-2 pb-24">
                 {/* Upcoming Shows */}
                 {upcomingShows.length === 0 ? (
                   <div className="text-center py-8 border border-dashed border-[var(--text-muted)]/20 rounded-xl mb-4">
@@ -760,8 +821,9 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                     </AnimatePresence>
                   </div>
                 )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -843,7 +905,7 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
         {/* CONNECT - Now last */}
         <section className="flex-shrink-0 w-screen h-[100dvh] snap-start flex items-center py-20 relative overflow-hidden">
           <FloatingLights />
-          <div className="container relative z-10">
+          <div className="container relative z-10 px-4 md:px-12 lg:px-16">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center max-w-5xl mx-auto">
               {/* About */}
               <motion.div
@@ -917,11 +979,17 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                 <p className="text-[var(--text-muted)] text-sm pt-4">
                   © {new Date().getFullYear()} color the night. All rights reserved
                   <span className="mx-2">·</span>
+                  <button
+                    onClick={() => setShowImprint(true)}
+                    className="hover:text-[var(--text-secondary)] transition-colors"
+                  >
+                    Imprint
+                  </button>
                   <a 
                     href="mailto:ferdinand.zangerl@gmail.com"
                     className="hover:text-[var(--text-secondary)] transition-colors"
                   >
-                    website by fz
+                    <br />website by fz
                   </a>
                 </p>
               </motion.div>
@@ -964,6 +1032,45 @@ export default function HorizontalScroll({ releases, tourDates, bandInfo, galler
                <div className="text-[18vw] sm:text-[12vw] lg:text-[15vw] font-black tracking-tighter text-[var(--accent)] leading-none">
                  ROOOAD!!!
                </div>
+             </motion.div>
+           </motion.div>
+         )}
+       </AnimatePresence>
+
+       {/* Imprint modal */}
+       <AnimatePresence>
+         {showImprint && (
+           <motion.div
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4"
+             onClick={() => setShowImprint(false)}
+           >
+             <motion.div
+               initial={{ scale: 0.95, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               exit={{ scale: 0.95, opacity: 0 }}
+               onClick={e => e.stopPropagation()}
+               className="bg-[var(--bg-elevated)] rounded-2xl border border-white/10 p-6 sm:p-8 max-w-md w-full"
+             >
+               <h3 className="text-lg font-semibold mb-4">Imprint</h3>
+               <div className="text-[var(--text-secondary)] text-sm space-y-2 leading-relaxed">
+                 <p className="font-medium text-white">Color The Night GesbR Zinner Paris und Mitges.</p>
+                 <p>Kollersdorf 41</p>
+                 <p>3943 Schrems</p>
+                 <p>
+                   <a href="mailto:management@colorthenight.at" className="text-[var(--accent)] hover:underline">
+                     management@colorthenight.at
+                   </a>
+                 </p>
+               </div>
+               <button
+                 onClick={() => setShowImprint(false)}
+                 className="mt-6 w-full py-2 rounded-full bg-white/10 hover:bg-white/15 transition-colors text-sm font-medium"
+               >
+                 Close
+               </button>
              </motion.div>
            </motion.div>
          )}

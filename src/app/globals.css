@@ -124,12 +124,14 @@ body {
   overflow-x: hidden;
 }
 
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display), sans-serif;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+/* Typography — inside @layer base so Tailwind utilities (leading-*, tracking-*) can override */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), sans-serif;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
 }
 
 /* Custom scrollbar */

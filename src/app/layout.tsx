@@ -15,9 +15,27 @@ const inter = Inter({
   weight: ["300", "400", "500", "600"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: "color the night",
   description: "We paint after dark. Indie-funk-pop from the shadows.",
+  icons: {
+    icon: "/favicon.ico?v=2",
+    apple: "/favicon.ico",
+  },
+  openGraph: {
+    title: "color the night",
+    description: "We paint after dark. Indie-funk-pop from the shadows.",
+    images: ["/favicon.ico"],
+  },
+  twitter: {
+    card: "summary",
+    title: "color the night",
+    description: "We paint after dark. Indie-funk-pop from the shadows.",
+    images: ["/favicon.ico"],
+  },
 };
 
 export default async function RootLayout({
